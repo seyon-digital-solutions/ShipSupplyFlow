@@ -50,7 +50,7 @@ export default function App() {
                 <SidebarTrigger data-testid="button-sidebar-toggle" />
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <p className="text-sm font-medium text-foreground">Captain Smith</p>
+                    <p className="text-sm font-medium text-foreground">Karthik Sankar</p>
                     <p className="text-xs text-muted-foreground">Administrator</p>
                   </div>
                   <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
@@ -63,7 +63,7 @@ export default function App() {
               </main>
             </div>
           </div>
-          <SupportChatbot />
+          {/* <SupportChatbot /> */}
         </SidebarProvider>
         <Toaster />
       </TooltipProvider>
