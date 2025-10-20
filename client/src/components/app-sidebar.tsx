@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, FileText, Settings, Ship } from "lucide-react";
+import { LayoutDashboard, Package, FileText, Settings, Ship, ShoppingCart, Receipt } from "lucide-react";
 import { useLocation } from "wouter";
 import {
   Sidebar,
@@ -27,6 +27,16 @@ const menuItems = [
     title: "Stock Movement",
     url: "/stock-movement",
     icon: FileText,
+  },
+  {
+    title: "Orders",
+    url: "/orders",
+    icon: ShoppingCart,
+  },
+  {
+    title: "Invoices",
+    url: "/invoices",
+    icon: Receipt,
   },
   {
     title: "Low Stock Report",

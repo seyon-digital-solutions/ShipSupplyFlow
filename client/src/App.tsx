@@ -9,6 +9,9 @@ import { User } from "lucide-react";
 import Dashboard from "@/pages/dashboard";
 import Inventory from "@/pages/inventory";
 import StockMovement from "@/pages/stock-movement";
+import Orders from "@/pages/orders";
+import OrderDetails from "@/pages/order-details";
+import Invoices from "@/pages/invoices";
 import LowStock from "@/pages/low-stock";
 import Settings from "@/pages/settings";
 import NotFound from "@/pages/not-found";
@@ -19,6 +22,9 @@ function Router() {
       <Route path="/" component={Dashboard} />
       <Route path="/inventory" component={Inventory} />
       <Route path="/stock-movement" component={StockMovement} />
+      <Route path="/orders" component={Orders} />
+      <Route path="/orders/:id" component={OrderDetails} />
+      <Route path="/invoices" component={Invoices} />
       <Route path="/low-stock" component={LowStock} />
       <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
