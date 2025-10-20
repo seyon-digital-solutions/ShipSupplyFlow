@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { SupportChatbot } from "@/components/support-chatbot";
 import { User } from "lucide-react";
 import Dashboard from "@/pages/dashboard";
 import Inventory from "@/pages/inventory";
@@ -62,6 +63,7 @@ export default function App() {
               </main>
             </div>
           </div>
+          <SupportChatbot />
         </SidebarProvider>
         <Toaster />
       </TooltipProvider>
