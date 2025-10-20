@@ -27,30 +27,55 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-
-// todo: remove mock functionality
-const mockUsers = [
-  { id: "1", name: "Captain John Smith", email: "captain@ship.com", role: "Admin", status: "Active" },
-  { id: "2", name: "Chief Engineer Mary", email: "engineer@ship.com", role: "Staff", status: "Active" },
-  { id: "3", name: "Deck Officer Tom", email: "deck@ship.com", role: "Staff", status: "Active" },
-  { id: "4", name: "Supply Manager Lisa", email: "supply@ship.com", role: "Staff", status: "Active" },
-];
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import type { User } from "@shared/schema";
 
 export default function Settings() {
   const [modalOpen, setModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
-    email: "",
-    role: "Staff",
+    username: "",
     password: "",
+    role: "Staff",
+  });
+
+  const { data: users = [], isLoading } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+  });
+
+  const createUserMutation = useMutation({
+    mutationFn: async (userData: any) => {
+      return apiRequest("POST", "/api/users", userData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      setModalOpen(false);
+      setFormData({ name: "", username: "", password: "", role: "Staff" });
+    },
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      return apiRequest("DELETE", `/api/users/${userId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+    },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Adding user:", formData);
-    setModalOpen(false);
-    setFormData({ name: "", email: "", role: "Staff", password: "" });
+    createUserMutation.mutate(formData);
   };
+
+  if (isLoading) {
+    return (
+      <div className="p-6 flex items-center justify-center h-full">
+        <p className="text-muted-foreground">Loading settings...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -72,25 +97,19 @@ export default function Settings() {
             <TableHeader>
               <TableRow className="bg-accent">
                 <TableHead className="font-semibold">Name</TableHead>
-                <TableHead className="font-semibold">Email</TableHead>
+                <TableHead className="font-semibold">Username</TableHead>
                 <TableHead className="font-semibold">Role</TableHead>
-                <TableHead className="font-semibold">Status</TableHead>
                 <TableHead className="font-semibold">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockUsers.map((user, index) => (
+              {users.map((user, index) => (
                 <TableRow key={user.id} className={index % 2 === 1 ? "bg-muted/30" : ""} data-testid={`row-user-${user.id}`}>
                   <TableCell className="font-medium">{user.name}</TableCell>
-                  <TableCell>{user.email}</TableCell>
+                  <TableCell>{user.username}</TableCell>
                   <TableCell>
                     <Badge variant={user.role === "Admin" ? "default" : "secondary"}>
                       {user.role}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="bg-chart-3/10 text-chart-3 border-chart-3">
-                      {user.status}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -106,7 +125,7 @@ export default function Settings() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => console.log(`Delete ${user.name}`)}
+                        onClick={() => deleteUserMutation.mutate(user.id)}
                         data-testid={`button-delete-user-${user.id}`}
                       >
                         <Trash2 className="w-4 h-4 text-destructive" />
@@ -138,15 +157,14 @@ export default function Settings() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="username">Username</Label>
               <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="john@ship.com"
+                id="username"
+                value={formData.username}
+                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                placeholder="john.doe"
                 required
-                data-testid="input-user-email"
+                data-testid="input-user-username"
               />
             </div>
             <div className="space-y-2">
@@ -180,8 +198,8 @@ export default function Settings() {
               <Button type="button" variant="outline" onClick={() => setModalOpen(false)} data-testid="button-cancel-user">
                 Cancel
               </Button>
-              <Button type="submit" data-testid="button-save-user">
-                Add User
+              <Button type="submit" disabled={createUserMutation.isPending} data-testid="button-save-user">
+                {createUserMutation.isPending ? "Adding..." : "Add User"}
               </Button>
             </DialogFooter>
           </form>

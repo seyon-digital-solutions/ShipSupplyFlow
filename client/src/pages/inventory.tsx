@@ -20,28 +20,40 @@ import { Plus, ArrowDownCircle, ArrowUpCircle, Search, Pencil } from "lucide-rea
 import { AddEditItemModal } from "@/components/add-edit-item-modal";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-
-// todo: remove mock functionality
-const mockItems = [
-  { id: "1", name: "Hydraulic Oil SAE 30", category: "Engine Store", currentStock: 150, unit: "Liters", location: "Engine Room", lastUpdated: new Date(2025, 9, 20) },
-  { id: "2", name: "Deck Paint - White", category: "Deck Store", currentStock: 8, unit: "Liters", location: "Deck", lastUpdated: new Date(2025, 9, 19) },
-  { id: "3", name: "Engine Grease", category: "Engine Store", currentStock: 45, unit: "Kilograms", location: "Engine Room", lastUpdated: new Date(2025, 9, 18) },
-  { id: "4", name: "Safety Gloves", category: "Safety Equipment", currentStock: 28, unit: "Pieces", location: "Main Store", lastUpdated: new Date(2025, 9, 20) },
-  { id: "5", name: "Fresh Water", category: "Provision Store", currentStock: 2000, unit: "Liters", location: "Galley", lastUpdated: new Date(2025, 9, 17) },
-  { id: "6", name: "Rope 20mm", category: "Deck Store", currentStock: 120, unit: "Meters", location: "Deck", lastUpdated: new Date(2025, 9, 16) },
-  { id: "7", name: "Air Filter", category: "Spare Parts", currentStock: 6, unit: "Pieces", location: "Engine Room", lastUpdated: new Date(2025, 9, 15) },
-  { id: "8", name: "Fire Extinguisher", category: "Safety Equipment", currentStock: 24, unit: "Pieces", location: "Main Store", lastUpdated: new Date(2025, 9, 14) },
-];
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import type { Item } from "@shared/schema";
 
 export default function Inventory() {
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [locationFilter, setLocationFilter] = useState("all");
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalType, setModalType] = useState<"add" | "edit" | "issue" | "receive">("add");
-  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
 
-  const filteredItems = mockItems.filter((item) => {
+  const { data: items = [], isLoading } = useQuery<Item[]>({
+    queryKey: ["/api/items"],
+  });
+
+  const createItemMutation = useMutation({
+    mutationFn: async (itemData: any) => {
+      return apiRequest("POST", "/api/items", itemData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+    },
+  });
+
+  const updateItemMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      return apiRequest("PATCH", `/api/items/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+    },
+  });
+
+  const filteredItems = items.filter((item) => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
     const matchesLocation = locationFilter === "all" || item.location === locationFilter;
@@ -49,16 +61,30 @@ export default function Inventory() {
   });
 
   const handleAddItem = () => {
-    setModalType("add");
     setSelectedItem(null);
     setModalOpen(true);
   };
 
-  const handleEditItem = (item: any) => {
-    setModalType("edit");
+  const handleEditItem = (item: Item) => {
     setSelectedItem(item);
     setModalOpen(true);
   };
+
+  const handleSaveItem = (itemData: any) => {
+    if (selectedItem) {
+      updateItemMutation.mutate({ id: selectedItem.id, data: itemData });
+    } else {
+      createItemMutation.mutate(itemData);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-6 flex items-center justify-center h-full">
+        <p className="text-muted-foreground">Loading inventory...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -135,30 +161,38 @@ export default function Inventory() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredItems.map((item, index) => (
-              <TableRow key={item.id} className={index % 2 === 1 ? "bg-muted/30" : ""} data-testid={`row-item-${item.id}`}>
-                <TableCell className="font-medium">{item.name}</TableCell>
-                <TableCell>
-                  <Badge variant="secondary">{item.category}</Badge>
-                </TableCell>
-                <TableCell>{item.currentStock}</TableCell>
-                <TableCell>{item.unit}</TableCell>
-                <TableCell>{item.location}</TableCell>
-                <TableCell className="text-muted-foreground text-sm">
-                  {format(item.lastUpdated, "MMM dd, yyyy")}
-                </TableCell>
-                <TableCell>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleEditItem(item)}
-                    data-testid={`button-edit-${item.id}`}
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </Button>
+            {filteredItems.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  No items found. Add your first inventory item to get started.
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              filteredItems.map((item, index) => (
+                <TableRow key={item.id} className={index % 2 === 1 ? "bg-muted/30" : ""} data-testid={`row-item-${item.id}`}>
+                  <TableCell className="font-medium">{item.name}</TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">{item.category}</Badge>
+                  </TableCell>
+                  <TableCell>{item.currentStock}</TableCell>
+                  <TableCell>{item.unit}</TableCell>
+                  <TableCell>{item.location}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {format(new Date(item.lastUpdated), "MMM dd, yyyy")}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleEditItem(item)}
+                      data-testid={`button-edit-${item.id}`}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
@@ -166,7 +200,7 @@ export default function Inventory() {
       <AddEditItemModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        onSave={(item) => console.log("Saved:", item)}
+        onSave={handleSaveItem}
         item={selectedItem}
       />
     </div>

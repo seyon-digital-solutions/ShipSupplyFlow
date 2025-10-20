@@ -3,81 +3,112 @@ import { SummaryCard } from "@/components/summary-card";
 import { StoreTypeCard } from "@/components/store-type-card";
 import { LowStockPredictions } from "@/components/low-stock-predictions";
 import { AIRecommendations } from "@/components/ai-recommendations";
-
-// todo: remove mock functionality
-const engineStoreItems = [
-  { name: "Hydraulic Oil SAE 30", currentStock: 45, minimumStock: 100, daysUntilEmpty: 5 },
-  { name: "Engine Grease", currentStock: 12, minimumStock: 25, daysUntilEmpty: 8 },
-  { name: "Fuel Filter", currentStock: 3, minimumStock: 8, daysUntilEmpty: 4 },
-  { name: "Oil Filter", currentStock: 6, minimumStock: 12, daysUntilEmpty: 7 },
-  { name: "Coolant Fluid", currentStock: 20, minimumStock: 50, daysUntilEmpty: 10 },
-  { name: "Transmission Oil", currentStock: 8, minimumStock: 20, daysUntilEmpty: 6 },
-  { name: "Air Filter Element", currentStock: 4, minimumStock: 10, daysUntilEmpty: 9 },
-  { name: "Gasket Set", currentStock: 2, minimumStock: 5, daysUntilEmpty: 12 },
-  { name: "V-Belt", currentStock: 5, minimumStock: 12, daysUntilEmpty: 11 },
-  { name: "Spark Plug", currentStock: 10, minimumStock: 24, daysUntilEmpty: 8 },
-];
-
-const deckStoreItems = [
-  { name: "Deck Paint - White", currentStock: 8, minimumStock: 20, daysUntilEmpty: 6 },
-  { name: "Rope 20mm", currentStock: 45, minimumStock: 100, daysUntilEmpty: 14 },
-  { name: "Wire Rope", currentStock: 12, minimumStock: 30, daysUntilEmpty: 10 },
-  { name: "Shackles", currentStock: 15, minimumStock: 40, daysUntilEmpty: 13 },
-  { name: "Steel Cable", currentStock: 8, minimumStock: 20, daysUntilEmpty: 9 },
-  { name: "Welding Rods", currentStock: 15, minimumStock: 40, daysUntilEmpty: 8 },
-  { name: "Deck Cleaner", currentStock: 5, minimumStock: 15, daysUntilEmpty: 7 },
-  { name: "Paint Thinner", currentStock: 6, minimumStock: 18, daysUntilEmpty: 11 },
-  { name: "Rust Remover", currentStock: 3, minimumStock: 10, daysUntilEmpty: 5 },
-  { name: "Safety Tape", currentStock: 20, minimumStock: 50, daysUntilEmpty: 12 },
-];
-
-const provisionStoreItems = [
-  { name: "Fresh Water", currentStock: 800, minimumStock: 2000, daysUntilEmpty: 4 },
-  { name: "Canned Vegetables", currentStock: 40, minimumStock: 100, daysUntilEmpty: 8 },
-  { name: "Rice", currentStock: 25, minimumStock: 80, daysUntilEmpty: 6 },
-  { name: "Cooking Oil", currentStock: 15, minimumStock: 40, daysUntilEmpty: 7 },
-  { name: "Coffee", currentStock: 8, minimumStock: 20, daysUntilEmpty: 5 },
-  { name: "Sugar", currentStock: 10, minimumStock: 30, daysUntilEmpty: 9 },
-  { name: "Salt", currentStock: 6, minimumStock: 15, daysUntilEmpty: 11 },
-  { name: "Flour", currentStock: 12, minimumStock: 35, daysUntilEmpty: 8 },
-  { name: "Pasta", currentStock: 18, minimumStock: 50, daysUntilEmpty: 10 },
-  { name: "Canned Meat", currentStock: 22, minimumStock: 60, daysUntilEmpty: 7 },
-];
-
-const aiRecommendations = [
-  {
-    type: "critical" as const,
-    title: "Critical: Engine Oil Stock Alert",
-    description: "Based on usage patterns, Hydraulic Oil SAE 30 will run out in 5 days. Recommend ordering 200L immediately to avoid operational disruption.",
-    action: "Create Order Now",
-  },
-  {
-    type: "critical" as const,
-    title: "Fresh Water Critical Low",
-    description: "Fresh water reserves at 40% capacity. Historical consumption suggests restocking needed within 4 days.",
-    action: "Request Emergency Supply",
-  },
-  {
-    type: "warning" as const,
-    title: "Seasonal Demand Increase",
-    description: "Historical data shows 40% increase in deck paint usage in next month due to maintenance season. Consider bulk ordering to save 15%.",
-    action: "View Bulk Pricing",
-  },
-  {
-    type: "optimization" as const,
-    title: "Cost Optimization Opportunity",
-    description: "Switch to quarterly orders for engine grease could reduce costs by $240/year with Marine Chandlers International.",
-    action: "Review Proposal",
-  },
-  {
-    type: "optimization" as const,
-    title: "Bundled Ordering Savings",
-    description: "Combine pending orders for deck store items to qualify for free shipping and save $125.",
-    action: "View Bundled Order",
-  },
-];
+import { useQuery } from "@tanstack/react-query";
+import type { Item, Transaction } from "@shared/schema";
 
 export default function Dashboard() {
+  const { data: items = [] } = useQuery<Item[]>({
+    queryKey: ["/api/items"],
+  });
+
+  const { data: transactions = [] } = useQuery<Transaction[]>({
+    queryKey: ["/api/transactions"],
+    select: (data) => data.slice(0, 10),
+  });
+
+  const { data: lowStockItems = [] } = useQuery<Item[]>({
+    queryKey: ["/api/items/low-stock"],
+  });
+
+  // Calculate summary stats
+  const totalItems = items.length;
+  const lowStockCount = lowStockItems.length;
+  const recentTransactionsCount = transactions.length;
+
+  // Calculate store type stats
+  const engineStoreItems = items.filter((item) => item.category === "Engine Store");
+  const deckStoreItems = items.filter((item) => item.category === "Deck Store");
+  const provisionStoreItems = items.filter((item) => item.category === "Provision Store");
+
+  const calculateStockLevel = (storeItems: Item[]) => {
+    if (storeItems.length === 0) return 0;
+    const totalStock = storeItems.reduce((sum, item) => sum + item.currentStock, 0);
+    const totalMin = storeItems.reduce((sum, item) => sum + item.minimumStock, 0);
+    return Math.round((totalStock / totalMin) * 100);
+  };
+
+  // Get low stock predictions for each store (top 10)
+  const getStorePredictions = (category: string) => {
+    return items
+      .filter((item) => item.category === category && item.currentStock < item.minimumStock)
+      .map((item) => {
+        // Calculate estimated days until empty based on average usage
+        const deficit = item.minimumStock - item.currentStock;
+        const usageRate = 5; // Mock: assume 5 units per day average
+        const daysUntilEmpty = Math.max(1, Math.round(item.currentStock / usageRate));
+        
+        return {
+          name: item.name,
+          currentStock: item.currentStock,
+          minimumStock: item.minimumStock,
+          daysUntilEmpty,
+        };
+      })
+      .sort((a, b) => a.daysUntilEmpty - b.daysUntilEmpty)
+      .slice(0, 10);
+  };
+
+  const enginePredictions = getStorePredictions("Engine Store");
+  const deckPredictions = getStorePredictions("Deck Store");
+  const provisionPredictions = getStorePredictions("Provision Store");
+
+  // AI recommendations based on actual data
+  const aiRecommendations = [];
+  
+  // Critical alerts for items running out soon
+  const criticalItems = lowStockItems.filter((item) => {
+    const usageRate = 5;
+    const daysLeft = Math.round(item.currentStock / usageRate);
+    return daysLeft <= 5;
+  });
+
+  if (criticalItems.length > 0) {
+    criticalItems.forEach((item) => {
+      aiRecommendations.push({
+        type: "critical" as const,
+        title: `Critical: ${item.name} Stock Alert`,
+        description: `Based on usage patterns, ${item.name} will run out soon. Recommend ordering ${item.minimumStock - item.currentStock + 50} ${item.unit} immediately.`,
+        action: "Create Order Now",
+      });
+    });
+  }
+
+  // Warning for approaching low stock
+  const warningItems = lowStockItems.filter((item) => {
+    const usageRate = 5;
+    const daysLeft = Math.round(item.currentStock / usageRate);
+    return daysLeft > 5 && daysLeft <= 14;
+  });
+
+  if (warningItems.length > 0 && aiRecommendations.length < 3) {
+    aiRecommendations.push({
+      type: "warning" as const,
+      title: "Multiple Items Approaching Low Stock",
+      description: `${warningItems.length} items will reach minimum stock levels within 2 weeks. Consider bulk ordering to save on shipping costs.`,
+      action: "View Items & Create Order",
+    });
+  }
+
+  // Add optimization suggestions
+  if (aiRecommendations.length < 5) {
+    aiRecommendations.push({
+      type: "optimization" as const,
+      title: "Cost Optimization Opportunity",
+      description: "Switch to quarterly orders for frequently used items could reduce costs by 15% annually with preferred chandlers.",
+      action: "Review Proposal",
+    });
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -86,24 +117,44 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <SummaryCard title="Total Items" value="324" icon={Package} accentColor="primary" />
-        <SummaryCard title="Low Stock Items" value="12" icon={AlertTriangle} accentColor="warning" />
-        <SummaryCard title="Recent Transactions" value="48" icon={TrendingDown} accentColor="success" />
+        <SummaryCard title="Total Items" value={totalItems.toString()} icon={Package} accentColor="primary" />
+        <SummaryCard title="Low Stock Items" value={lowStockCount.toString()} icon={AlertTriangle} accentColor="warning" />
+        <SummaryCard title="Recent Transactions" value={recentTransactionsCount.toString()} icon={TrendingDown} accentColor="success" />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StoreTypeCard name="Engine Store" count={156} stockLevel={78} />
-        <StoreTypeCard name="Deck Store" count={92} stockLevel={45} />
-        <StoreTypeCard name="Provision Store" count={76} stockLevel={92} />
+        <StoreTypeCard 
+          name="Engine Store" 
+          count={engineStoreItems.length} 
+          stockLevel={calculateStockLevel(engineStoreItems)} 
+        />
+        <StoreTypeCard 
+          name="Deck Store" 
+          count={deckStoreItems.length} 
+          stockLevel={calculateStockLevel(deckStoreItems)} 
+        />
+        <StoreTypeCard 
+          name="Provision Store" 
+          count={provisionStoreItems.length} 
+          stockLevel={calculateStockLevel(provisionStoreItems)} 
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <LowStockPredictions storeName="Engine Store" items={engineStoreItems} />
-        <LowStockPredictions storeName="Deck Store" items={deckStoreItems} />
-        <LowStockPredictions storeName="Provision Store" items={provisionStoreItems} />
+        {enginePredictions.length > 0 && (
+          <LowStockPredictions storeName="Engine Store" items={enginePredictions} />
+        )}
+        {deckPredictions.length > 0 && (
+          <LowStockPredictions storeName="Deck Store" items={deckPredictions} />
+        )}
+        {provisionPredictions.length > 0 && (
+          <LowStockPredictions storeName="Provision Store" items={provisionPredictions} />
+        )}
       </div>
 
-      <AIRecommendations recommendations={aiRecommendations} />
+      {aiRecommendations.length > 0 && (
+        <AIRecommendations recommendations={aiRecommendations} />
+      )}
     </div>
   );
 }

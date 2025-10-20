@@ -25,7 +25,7 @@ export const items = pgTable("items", {
 
 export const transactions = pgTable("transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  itemId: varchar("item_id").notNull(),
+  itemId: varchar("item_id").notNull().references(() => items.id, { onDelete: "cascade" }),
   type: text("type").notNull(),
   quantity: integer("quantity").notNull(),
   date: timestamp("date").notNull().defaultNow(),
@@ -46,26 +46,26 @@ export const orders = pgTable("orders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   orderNumber: text("order_number").notNull().unique(),
   status: text("status").notNull().default("pending"),
-  createdBy: varchar("created_by").notNull(),
+  createdBy: varchar("created_by").notNull().references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   requiredDate: timestamp("required_date").notNull(),
   notes: text("notes"),
-  selectedChandlerId: varchar("selected_chandler_id"),
+  selectedChandlerId: varchar("selected_chandler_id").references(() => chandlers.id),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }),
 });
 
 export const orderItems = pgTable("order_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  orderId: varchar("order_id").notNull(),
-  itemId: varchar("item_id").notNull(),
+  orderId: varchar("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+  itemId: varchar("item_id").notNull().references(() => items.id),
   quantity: integer("quantity").notNull(),
   unit: text("unit").notNull(),
 });
 
 export const bids = pgTable("bids", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  orderId: varchar("order_id").notNull(),
-  chandlerId: varchar("chandler_id").notNull(),
+  orderId: varchar("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+  chandlerId: varchar("chandler_id").notNull().references(() => chandlers.id),
   status: text("status").notNull().default("pending"),
   submittedAt: timestamp("submitted_at").notNull().defaultNow(),
   validUntil: timestamp("valid_until").notNull(),
@@ -75,8 +75,8 @@ export const bids = pgTable("bids", {
 
 export const bidItems = pgTable("bid_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  bidId: varchar("bid_id").notNull(),
-  orderItemId: varchar("order_item_id").notNull(),
+  bidId: varchar("bid_id").notNull().references(() => bids.id, { onDelete: "cascade" }),
+  orderItemId: varchar("order_item_id").notNull().references(() => orderItems.id),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
   totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
   availability: text("availability").notNull().default("in-stock"),
@@ -85,8 +85,8 @@ export const bidItems = pgTable("bid_items", {
 export const invoices = pgTable("invoices", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   invoiceNumber: text("invoice_number").notNull().unique(),
-  orderId: varchar("order_id").notNull(),
-  chandlerId: varchar("chandler_id").notNull(),
+  orderId: varchar("order_id").notNull().references(() => orders.id),
+  chandlerId: varchar("chandler_id").notNull().references(() => chandlers.id),
   issueDate: timestamp("issue_date").notNull().defaultNow(),
   dueDate: timestamp("due_date").notNull(),
   status: text("status").notNull().default("unpaid"),
@@ -102,10 +102,21 @@ export const insertUserSchema = createInsertSchema(users).omit({
 export const insertItemSchema = createInsertSchema(items).omit({
   id: true,
   lastUpdated: true,
+}).extend({
+  currentStock: z.number().min(0, "Stock cannot be negative"),
+  minimumStock: z.number().min(0, "Minimum stock cannot be negative"),
+});
+
+export const updateItemSchema = insertItemSchema.partial().extend({
+  currentStock: z.number().min(0, "Stock cannot be negative").optional(),
+  minimumStock: z.number().min(0, "Minimum stock cannot be negative").optional(),
 });
 
 export const insertTransactionSchema = createInsertSchema(transactions).omit({
   id: true,
+}).extend({
+  quantity: z.number().min(1, "Quantity must be at least 1"),
+  type: z.enum(["in", "out"]),
 });
 
 export const insertChandlerSchema = createInsertSchema(chandlers).omit({
@@ -139,6 +150,7 @@ export const insertInvoiceSchema = createInsertSchema(invoices).omit({
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertItem = z.infer<typeof insertItemSchema>;
+export type UpdateItem = z.infer<typeof updateItemSchema>;
 export type Item = typeof items.$inferSelect;
 export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
 export type Transaction = typeof transactions.$inferSelect;
