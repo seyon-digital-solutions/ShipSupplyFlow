@@ -59,8 +59,8 @@ export function AppSidebar() {
         <div className="flex items-center gap-2">
           <Ship className="w-6 h-6 text-sidebar-foreground" />
           <div>
-            <h2 className="text-base font-semibold text-sidebar-foreground">Ship Inventory</h2>
-            <p className="text-xs text-sidebar-foreground/70">Management System</p>
+            <h2 className="text-base font-semibold text-sidebar-foreground">SIMS</h2>
+            <p className="text-xs text-sidebar-foreground/70">Ship Inventory Management System</p>
           </div>
         </div>
       </SidebarHeader>
